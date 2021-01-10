@@ -1,1 +1,4 @@
-
+Quadkoin is not optimized for speed but its structure is extremely readable. For example, transactions, networks, mempools are all objects which can be manipulated.
+The alternative is to keep all of the information in these components in json which would improve speed but reduces readability. The object method is mainly slower because
+it requires iterating through lists of objects when converting to json since objects are not serializable themselves. This coin is meant to be used to learn the integral
+components of cryptocurrencies.

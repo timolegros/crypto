@@ -32,9 +32,9 @@ class BlockChain:
         # the .__dict__ extension
         self.chain = []
         self.MemPool = MemPool(10)
+        self.nodes = Network([])
         self.create_genesis()
         self.miningDiff = miningDiff
-        self.nodes = set{None}
 
     def create_genesis(self):
         """
@@ -178,7 +178,7 @@ class MemPool:
         return self.unverified_transactions[:self.max_tran_per_block]
 
 
-class Nodes:
+class Network:
 
     def __init__(self, node_addresses):
         self.node_addresses = node_addresses
@@ -187,12 +187,15 @@ class Nodes:
         for node in self.node_addresses:
             print(node)
 
-    def add_node_to_network(self, node_address):
+    def add_node(self, node_address):
         self.node_addresses.append(node_address)
+        self.broadcast(None, 'add_node')
 
-    def broadcast_to_network(self, message):
+    def broadcast(self, message, link):
         for node in self.node_addresses:
-            pass
+            requests.post(f"http://{node}/{link}", data=message)
+
+
 
 
 # coin in which power/hardware does not affect performance of mining -- something tied into productivity/good output

@@ -3,6 +3,7 @@ from hashlib import sha256
 import json
 from urllib.parse import urlparse
 import requests
+from uuid import uuid4
 
 
 class Block:
@@ -32,7 +33,7 @@ class BlockChain:
         # the .__dict__ extension
         self.chain = []
         self.MemPool = MemPool(10)
-        self.nodes = Network([])
+        self.Network = Network(1, [])
         self.create_genesis()
         self.miningDiff = miningDiff
 
@@ -85,7 +86,8 @@ class BlockChain:
     def mine(self):
         # if self.unverified_transactions:
         last_block = self.last_block
-        new_transactions = self.MemPool.get_top_transactions()
+        new_transactions = self.MemPool.get_top_transactions()  # TODO: change this to add transactions as dict not obj
+        new_transactions = [x.__dict__ for x in new_transactions]
         new_block = Block(last_block.index + 1, transactions=new_transactions, prev_hash=last_block.hash)
         proof_work = self.proof_of_work(new_block)
         self.add_block(new_block, proof_work)
@@ -103,12 +105,8 @@ class BlockChain:
                 return False
         return True
 
-    def add_node(self, node):
-        parsed_url = urlparse(node.address)
-        self.nodes.add(parsed_url.netloc)
-
     def consensus(self):
-        network = self.nodes
+        network = self.Network.node_addresses
         longest_chain = None
         max_length = len(self.chain)
         for node in network:
@@ -124,6 +122,19 @@ class BlockChain:
             return True
         else:
             return False
+
+    def propagate_transaction(self, transaction):
+        # makes sure the transaction had not already been added
+        for i in self.MemPool.unverified_transactions:
+            if transaction.id == i.id:
+                return False
+
+        # adds the transaction to memPool and propagates the transaction to the other node MemPools
+        self.MemPool.insert_single_transaction(transaction)
+        self.Network.broadcast({'transaction': transaction.__dict__}, 'add_transaction')
+
+        return True
+
     @property
     def last_block(self):
         return self.chain[-1]
@@ -132,6 +143,7 @@ class BlockChain:
 class Transaction:
 
     def __init__(self, sender, receiver, amount, fee):
+        self.id = uuid4()
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
@@ -143,32 +155,46 @@ class Transaction:
 
 class MemPool:
 
-    def __init__(self, max_tran_per_block):
+    def __init__(self, max_tran_per_block, max_tran_per_MemPool):
         # transactions ordered from greatest to least
         self.unverified_transactions = []
-        self.max_tran_per_block= max_tran_per_block
+        # the maximum number of transactions that can be put into a block
+        self.max_tran_per_block = max_tran_per_block
+        # the maximum number of transactions that an instance of the MemPool can hold
+        self.max_tran_per_MemPool = max_tran_per_MemPool
 
     def insert_single_transaction(self, transaction):
         """
         Inserts a transaction in the unverified transaction list in its correct place in the order of greatest to least
         transaction fee
         :param transaction: A transaction object
-        :return: The index where the transaction was inserted
+        :return: False if the MemPool is full and the index where the transaction was inserted if successful
         """
-        new_fee = transaction.fee
-        if self.unverified_transactions:
-            for i in range(len(self.unverified_transactions)):
-                if new_fee >= self.unverified_transactions[i].fee:
-                    self.unverified_transactions.insert(i, transaction)
-                    return i, len(self.unverified_transactions)
-        else:
-            self.unverified_transactions.append(transaction)
-            return 0, len(self.unverified_transactions)
+        if 1 + len(self.unverified_transactions) > self.max_tran_per_MemPool:
+            return False
+        elif transaction not in self.unverified_transactions:
+            new_fee = transaction.fee
+            if self.unverified_transactions:
+                for i in range(len(self.unverified_transactions)):
+                    if new_fee >= self.unverified_transactions[i].fee:
+                        self.unverified_transactions.insert(i, transaction)
+                        return i, len(self.unverified_transactions)
+            else:
+                self.unverified_transactions.append(transaction)
+                return 0, len(self.unverified_transactions)
 
     def insert_multiple_transactions(self, transactions):
-        self.unverified_transactions.extend(transactions)
-        self.unverified_transactions.sort(key=lambda x: x.fee, reverse=True)
-        return len(self.unverified_transactions)
+        """
+        Inserts a batch of transactions and orders them by transaction fee
+        :param transactions: a list of transaction objects
+        :return: False if the MemPool is full and the number of unverified transactions if successful
+        """
+        if len(transactions) + len(self.unverified_transactions) > self.max_tran_per_MemPool:
+            return False
+        else:
+            self.unverified_transactions.extend(transactions)
+            self.unverified_transactions.sort(key=lambda x: x.fee, reverse=True)
+            return len(self.unverified_transactions)
 
     def remove_transactions(self, transactions):
         for x in transactions:
@@ -180,20 +206,42 @@ class MemPool:
 
 class Network:
 
-    def __init__(self, node_addresses):
+    def __init__(self, current_node, node_addresses):
+        self.current_node = current_node
         self.node_addresses = node_addresses
+        self.connected = False
 
     def list_nodes(self):
         for node in self.node_addresses:
             print(node)
 
-    def add_node(self, node_address):
-        self.node_addresses.append(node_address)
-        self.broadcast(None, 'add_node')
+    def add_node(self, node):
+        """
+        Adds a new node to this network and propagates the node to all the other nodes in this network
+        :param node: The node to be added to this Network log
+        :return: True if the node is added to this network and false if the node is already in the network
+        """
+        if node not in self.node_addresses:
+            # appends node to this instance of the network
+            self.node_addresses.append(node)
+            # propagates the new node to all of this networks connected nodes
+            self.broadcast({'node_address': self.current_node}, 'add_node')
+            return True
+        else:
+            # propagation from node to node stops if the node is already in this network (it has already propagated
+            # the new node its own network
+            return False
+
+    def connect_to_network(self):
+        payload = {'node_address': self.current_node}
+        self.broadcast(payload, 'add_node')
+        self.connected = True
 
     def broadcast(self, message, link):
         for node in self.node_addresses:
             requests.post(f"http://{node}/{link}", data=message)
+
+
 
 
 

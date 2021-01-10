@@ -43,7 +43,7 @@ def validate_chain():
 @app.route('/add_transaction', method=['POST'])
 def add_transaction():
     data = request.form['transaction']
-    new_transaction = Transaction(data['sender'], data['receiver'], data['amount'], data['fee'])
+    new_transaction = Transaction(data['sender'], data['receiver'], data['amount'], data['fee'], data['ID'])
 
     if blockchain.propagate_transaction(new_transaction):
         return jsonify({'message': 'Transaction successfully added'})
@@ -59,10 +59,19 @@ def add_node():
     return jsonify(response), 201
 
 
-@app.route('/transaction_verified', method=['POST'])
+@app.route('/transactions_verified', method=['POST'])
 def transactions_verified():
-    transactions = request.form['transactions']
-    blockchain.MemPool.remove_transactions(transactions)
+    data = request.form['transactions']
+
+    # remove transactions from this MemPool
+    transactions = [Transaction(x['sender'], x['receiver'], x['amount'], x['fee'], x['ID']) for x in data]
+    validity = blockchain.MemPool.remove_transactions(transactions)
+
+    # if transactions have already been removed then this node has already propagated this action to the other nodes
+    if validity:
+        # propagate remove call to the other nodes
+        blockchain.Network.broadcast(data, '/transactions_verified')
+
     response = {'message': 'Transactions successfully verified and removed from MemPool'}
     return jsonify(response), 201
 

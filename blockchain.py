@@ -125,8 +125,8 @@ class BlockChain:
 
     def propagate_transaction(self, transaction):
         # makes sure the transaction had not already been added
-        for i in self.MemPool.unverified_transactions:
-            if transaction.id == i.id:
+        for x in self.MemPool.unverified_transactions:
+            if transaction.ID == x.ID:
                 return False
 
         # adds the transaction to memPool and propagates the transaction to the other node MemPools
@@ -142,18 +142,31 @@ class BlockChain:
 
 class Transaction:
 
-    def __init__(self, sender, receiver, amount, fee):
-        self.id = uuid4()
+    def __init__(self, sender, receiver, amount, fee, ID=str(uuid4()).replace('-', '')):
+        self.ID = ID
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
         self.fee = fee
 
     def __str__(self):
-        print(f'{self.sender} sent {self.amount}$ to {self.receiver} for a fee of: {self.fee}')
+        print(f'{self.sender} sent {self.amount}$ to {self.receiver} for a fee of: {self.fee} --- ID: {self.ID}')
+
+    def __eq__(self, other):
+        """
+        Ensures that the equality of Transaction objects is defined by their actual values and not identity.
+        :param other: another Transaction object
+        :return: True if the Transaction objects have the same __dict__ and False otherwise
+        """
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class MemPool:
+    # TODO: Devise method of recording transaction history so that if collision occurs transactions that were verified
+    # TODO: but aren't anymore get moved
 
     def __init__(self, max_tran_per_block, max_tran_per_MemPool):
         # transactions ordered from greatest to least
@@ -197,11 +210,24 @@ class MemPool:
             return len(self.unverified_transactions)
 
     def remove_transactions(self, transactions):
+        removed = False
         for x in transactions:
-            self.unverified_transactions.remove(x)
+            try:
+                del self.unverified_transactions[self.get_transaction_index(x)]
+                removed = True
+            except Exception as error:
+                pass
+        return removed
 
     def get_top_transactions(self):
         return self.unverified_transactions[:self.max_tran_per_block]
+
+    def get_transaction_index(self, transaction):
+        for x in range(len(self.unverified_transactions)):
+            if transaction.ID == self.unverified_transactions[x].ID:
+                return x
+
+        return False
 
 
 class Network:

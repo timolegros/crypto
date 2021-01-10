@@ -20,20 +20,32 @@ class Block:
         block = json.dumps(self.__dict__, sort_keys=True).encode()
         return sha256(block).hexdigest()
 
+    def __repr__(self):
+        return f"""Transactions: {self.transactions}\n
+                        Proof: {self.nonce}\n
+                        Previous Hash: {self.prev_hash}\n
+                        Creation date: {self.timestamp}"""
+
     def __str__(self):
-        print(
-            f"Transactions: {self.transactions}\nProof: {self.nonce}\nPrevious Hash: {self.prev_hash}\nCreation date: "
-            f"{self.timestamp}")
+        return f"""Transactions: {self.transactions}\n
+                Proof: {self.nonce}\n
+                Previous Hash: {self.prev_hash}\n
+                Creation date: {self.timestamp}"""
 
 
 class BlockChain:
 
-    def __init__(self, miningDiff):
+    def __init__(self, miningDiff, port, url='127.0.0.1'):
         # chain and unverified_transactions are both lists of dictionary's since blocks and transactions are added with
         # the .__dict__ extension
         self.chain = []
-        self.MemPool = MemPool(10)
-        self.Network = Network(1, [])
+        self.MemPool = MemPool(10, 100)
+
+        # initialize this node and network
+        self.node = Node(url, port)
+        self.Network = Network(self.node, [])
+        self.Network.connect_to_network()
+
         self.create_genesis()
         self.miningDiff = miningDiff
 
@@ -149,8 +161,11 @@ class Transaction:
         self.amount = amount
         self.fee = fee
 
+    def __repr__(self):
+        return f"{self.sender} sent {self.amount}$ to {self.receiver} for a fee of: {self.fee} --- ID: {self.ID}"
+
     def __str__(self):
-        print(f'{self.sender} sent {self.amount}$ to {self.receiver} for a fee of: {self.fee} --- ID: {self.ID}')
+        return f"{self.sender} sent {self.amount}$ to {self.receiver} for a fee of: {self.fee} --- ID: {self.ID}"
 
     def __eq__(self, other):
         """
@@ -230,15 +245,39 @@ class MemPool:
         return False
 
 
+class Node:
+
+    def __init__(self, path='127.0.0.0', port='50001', address=str(uuid4()).replace('-', '')):
+        self.path = path
+        self.port = port
+        self.address = address
+
+    @property
+    def full_url(self):
+        return 'http://' + self.path + '/' + self.port
+
+    def __repr__(self):
+        return f"Node url: {self.full_url}\nNode Address: {self.address}"
+
+    def __str__(self):
+        return f"Node url: {self.full_url}\nNode Address: {self.address}"
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
 class Network:
 
-    def __init__(self, current_node, node_addresses):
+    def __init__(self, current_node, nodes):
         self.current_node = current_node
-        self.node_addresses = node_addresses
+        self.nodes = nodes
         self.connected = False
 
     def list_nodes(self):
-        for node in self.node_addresses:
+        for node in self.nodes:
             print(node)
 
     def add_node(self, node):
@@ -247,11 +286,11 @@ class Network:
         :param node: The node to be added to this Network log
         :return: True if the node is added to this network and false if the node is already in the network
         """
-        if node not in self.node_addresses:
+        if node not in self.nodes:
             # appends node to this instance of the network
-            self.node_addresses.append(node)
+            self.nodes.append(node)
             # propagates the new node to all of this networks connected nodes
-            self.broadcast({'node_address': self.current_node}, 'add_node')
+            self.broadcast({'node': node.__dict__}, 'add_node')
             return True
         else:
             # propagation from node to node stops if the node is already in this network (it has already propagated
@@ -264,9 +303,8 @@ class Network:
         self.connected = True
 
     def broadcast(self, message, link):
-        for node in self.node_addresses:
-            requests.post(f"http://{node}/{link}", data=message)
-
+        for node in self.nodes:
+            requests.post(f"{node.full_url}/{link}", data=message)
 
 
 

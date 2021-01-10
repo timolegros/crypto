@@ -1,11 +1,8 @@
 from flask import Flask, request, jsonify
-from blockchain import BlockChain
-from blockchain import Transaction
+from blockchain import BlockChain,Transaction, Node
 from uuid import uuid4
 
 app = Flask(__name__)
-
-node_one = str(uuid4()).replace('-', '')
 
 blockchain = BlockChain(1)
 
@@ -40,7 +37,7 @@ def validate_chain():
     return jsonify(response), 200
 
 
-@app.route('/add_transaction', method=['POST'])
+@app.route('/add_transaction', methods=['POST'])
 def add_transaction():
     data = request.form['transaction']
     new_transaction = Transaction(data['sender'], data['receiver'], data['amount'], data['fee'], data['ID'])
@@ -51,15 +48,16 @@ def add_transaction():
         return 400
 
 
-@app.route('/add_node', method=['POST'])
+@app.route('/add_node', methods=['POST'])
 def add_node():
-    new_node = request.form['node_address']
+    data = request.form['node']
+    new_node = Node(data['path'], data['port'], data['address'])
     blockchain.Network.add_node(new_node)
     response = {'message': 'Node successfully connected!'}
     return jsonify(response), 201
 
 
-@app.route('/transactions_verified', method=['POST'])
+@app.route('/transactions_verified', methods=['POST'])
 def transactions_verified():
     data = request.form['transactions']
 

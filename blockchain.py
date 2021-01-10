@@ -31,7 +31,7 @@ class BlockChain:
         # chain and unverified_transactions are both lists of dictionary's since blocks and transactions are added with
         # the .__dict__ extension
         self.chain = []
-        self.unverified_transactions = []
+        self.MemPool = MemPool(10)
         self.create_genesis()
         self.miningDiff = miningDiff
         self.nodes = set{None}
@@ -85,11 +85,11 @@ class BlockChain:
     def mine(self):
         # if self.unverified_transactions:
         last_block = self.last_block
-        new_block = Block(last_block.index + 1, transactions=self.unverified_transactions, prev_hash=last_block.hash)
-
+        new_transactions = self.MemPool.get_top_transactions()
+        new_block = Block(last_block.index + 1, transactions=new_transactions, prev_hash=last_block.hash)
         proof_work = self.proof_of_work(new_block)
         self.add_block(new_block, proof_work)
-        self.unverified_transactions = []
+        self.MemPool.remove_transactions(new_transactions)
 
         return new_block
         # else:
@@ -102,9 +102,6 @@ class BlockChain:
             elif chain[i]['hash'][:self.miningDiff] != '0' * self.miningDiff and i != 0:
                 return False
         return True
-
-    def add_transaction(self, transaction):
-        self.unverified_transactions.append(transaction.__dict__)
 
     def add_node(self, node):
         parsed_url = urlparse(node.address)
@@ -134,22 +131,69 @@ class BlockChain:
 
 class Transaction:
 
-    def __init__(self, sender, receiver, amount):
+    def __init__(self, sender, receiver, amount, fee):
         self.sender = sender
         self.receiver = receiver
         self.amount = amount
+        self.fee = fee
 
     def __str__(self):
-        print(f'{self.sender} sent {self.amount}$ to {self.receiver}')
-
-class Node:
-
-    def __init__(self, address):
-        self.address = address
+        print(f'{self.sender} sent {self.amount}$ to {self.receiver} for a fee of: {self.fee}')
 
 
 class MemPool:
-    pass
+
+    def __init__(self, max_tran_per_block):
+        # transactions ordered from greatest to least
+        self.unverified_transactions = []
+        self.max_tran_per_block= max_tran_per_block
+
+    def insert_single_transaction(self, transaction):
+        """
+        Inserts a transaction in the unverified transaction list in its correct place in the order of greatest to least
+        transaction fee
+        :param transaction: A transaction object
+        :return: The index where the transaction was inserted
+        """
+        new_fee = transaction.fee
+        if self.unverified_transactions:
+            for i in range(len(self.unverified_transactions)):
+                if new_fee >= self.unverified_transactions[i].fee:
+                    self.unverified_transactions.insert(i, transaction)
+                    return i, len(self.unverified_transactions)
+        else:
+            self.unverified_transactions.append(transaction)
+            return 0, len(self.unverified_transactions)
+
+    def insert_multiple_transactions(self, transactions):
+        self.unverified_transactions.extend(transactions)
+        self.unverified_transactions.sort(key=lambda x: x.fee, reverse=True)
+        return len(self.unverified_transactions)
+
+    def remove_transactions(self, transactions):
+        for x in transactions:
+            self.unverified_transactions.remove(x)
+
+    def get_top_transactions(self):
+        return self.unverified_transactions[:self.max_tran_per_block]
 
 
-# coin in which power/hardware does not affect performance of mining
+class Nodes:
+
+    def __init__(self, node_addresses):
+        self.node_addresses = node_addresses
+
+    def list_nodes(self):
+        for node in self.node_addresses:
+            print(node)
+
+    def add_node_to_network(self, node_address):
+        self.node_addresses.append(node_address)
+
+    def broadcast_to_network(self, message):
+        for node in self.node_addresses:
+            pass
+
+
+# coin in which power/hardware does not affect performance of mining -- something tied into productivity/good output
+# so reward is not computing power based but productivity based (open source contributions based?)

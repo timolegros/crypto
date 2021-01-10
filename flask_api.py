@@ -4,7 +4,7 @@ from uuid import uuid4
 
 app = Flask(__name__)
 
-blockchain = BlockChain(1)
+blockchain = BlockChain(1, '5001', '127.0.0.1')
 
 
 @app.route('/get_chain', methods=['GET'])

@@ -8,11 +8,11 @@ from uuid import uuid4
 
 class Block:
 
-    def __init__(self, index, transactions, prev_hash, nonce=0):
+    def __init__(self, index, transactions, prev_hash, nonce=0, timestamp=str(datetime.datetime.now())):
         self.index = index
         self.nonce = nonce
         self.transactions = transactions
-        self.timestamp = str(datetime.datetime.now())
+        self.timestamp = timestamp
         self.prev_hash = prev_hash
 
     def compute_hash(self):
@@ -35,7 +35,7 @@ class Block:
 
 class BlockChain:
 
-    def __init__(self, miningDiff, port, url='127.0.0.1'):
+    def __init__(self, miningDiff, port='50001', url='127.0.0.1'):
         # chain and unverified_transactions are both lists of dictionary's since blocks and transactions are added with
         # the .__dict__ extension
         self.chain = []
@@ -75,10 +75,11 @@ class BlockChain:
         if prev_hash != block.prev_hash or not self.check_proof(block, proof_computed_hash):
             return False
         block.hash = proof_computed_hash
-        self.chain.append(block.__dict__)  # TODO: Adding __dict__ is not a valid solution -- create custom json encoder
+        self.chain.append(block.__dict__)
 
         # removes all the verified transactions
-        self.unverified_transactions = [x for x in self.unverified_transactions if x not in block.transactions]
+        if not self.MemPool.remove_transactions(block.transactions):
+
 
         return True
 
@@ -91,9 +92,6 @@ class BlockChain:
         :return:
         """
         return (computed_hash[:self.miningDiff] == '0' * self.miningDiff) and computed_hash == block.compute_hash()
-
-    def add_transaction(self, transaction):
-        self.unverified_transactions.append(transaction)
 
     def mine(self):
         # if self.unverified_transactions:
@@ -118,11 +116,11 @@ class BlockChain:
         return True
 
     def consensus(self):
-        network = self.Network.node_addresses
+        network = self.Network.nodes
         longest_chain = None
         max_length = len(self.chain)
         for node in network:
-            response = requests.get(f'http://{node}/get_chain')
+            response = requests.get(f'{node.full_url}/get_chain')
             if response.status_code == 200:
                 node_chain_length = response.json()['length']
                 node_chain = response.json()['chain']
@@ -130,7 +128,7 @@ class BlockChain:
                     max_length = node_chain_length
                     longest_chain = node_chain
         if longest_chain:
-            self.chain = longest_chain
+            self.chain = [Block(x['index'], x['transactions'], x['prev_hash'], x['nonce'], x['timestamp']) for x in longest_chain]
             return True
         else:
             return False
@@ -228,8 +226,12 @@ class MemPool:
         removed = False
         for x in transactions:
             try:
-                del self.unverified_transactions[self.get_transaction_index(x)]
-                removed = True
+                index = self.get_transaction_index(x)
+                if index:
+                    del self.unverified_transactions[self.get_transaction_index(x)]
+                    removed = True
+                else:
+                    pass
             except Exception as error:
                 pass
         return removed

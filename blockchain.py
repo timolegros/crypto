@@ -1,6 +1,8 @@
 import datetime
 from hashlib import sha256
 import json
+from urllib.parse import urlparse
+import requests
 
 
 class Block:
@@ -26,10 +28,13 @@ class Block:
 class BlockChain:
 
     def __init__(self, miningDiff):
+        # chain and unverified_transactions are both lists of dictionary's since blocks and transactions are added with
+        # the .__dict__ extension
         self.chain = []
         self.unverified_transactions = []
         self.create_genesis()
         self.miningDiff = miningDiff
+        self.nodes = set{None}
 
     def create_genesis(self):
         """
@@ -57,7 +62,10 @@ class BlockChain:
         if prev_hash != block.prev_hash or not self.check_proof(block, proof_computed_hash):
             return False
         block.hash = proof_computed_hash
-        self.chain.append(block)  # TODO: Adding __dict__ is not a valid solution -- create custom json encoder
+        self.chain.append(block.__dict__)  # TODO: Adding __dict__ is not a valid solution -- create custom json encoder
+
+        # removes all the verified transactions
+        self.unverified_transactions = [x for x in self.unverified_transactions if x not in block.transactions]
 
         return True
 
@@ -87,14 +95,38 @@ class BlockChain:
         # else:
         #     return False
 
-    def validate_chain(self):
+    def validate_chain(self, chain):
         for i in range(len(self.chain) - 1):
-            if self.chain[i].hash != self.chain[i + 1].prev_hash:
+            if chain[i]['hash'] != chain[i + 1]['prev_hash']:
                 return False
-            elif self.chain[i].hash[:self.miningDiff] != '0' * self.miningDiff and i != 0:
+            elif chain[i]['hash'][:self.miningDiff] != '0' * self.miningDiff and i != 0:
                 return False
         return True
 
+    def add_transaction(self, transaction):
+        self.unverified_transactions.append(transaction.__dict__)
+
+    def add_node(self, node):
+        parsed_url = urlparse(node.address)
+        self.nodes.add(parsed_url.netloc)
+
+    def consensus(self):
+        network = self.nodes
+        longest_chain = None
+        max_length = len(self.chain)
+        for node in network:
+            response = requests.get(f'http://{node}/get_chain')
+            if response.status_code == 200:
+                node_chain_length = response.json()['length']
+                node_chain = response.json()['chain']
+                if node_chain_length > max_length and self.validate_chain(node_chain):
+                    max_length = node_chain_length
+                    longest_chain = node_chain
+        if longest_chain:
+            self.chain = longest_chain
+            return True
+        else:
+            return False
     @property
     def last_block(self):
         return self.chain[-1]
@@ -109,6 +141,11 @@ class Transaction:
 
     def __str__(self):
         print(f'{self.sender} sent {self.amount}$ to {self.receiver}')
+
+class Node:
+
+    def __init__(self, address):
+        self.address = address
 
 
 class MemPool:

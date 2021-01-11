@@ -35,7 +35,7 @@ class Block:
 
 class BlockChain:
 
-    def __init__(self, miningDiff, port='50001', url='127.0.0.1'):
+    def __init__(self, miningDiff, Node2, port='50000', url='127.0.0.1'):
         # chain and unverified_transactions are both lists of dictionary's since blocks and transactions are added with
         # the .__dict__ extension
         self.chain = []
@@ -43,8 +43,8 @@ class BlockChain:
 
         # initialize this node and network
         self.node = Node(url, port)
-        self.Network = Network(self.node, [])
-        self.Network.connect_to_network()
+        self.Network = Network(self.node, [Node2])
+        # self.Network.connect_to_network()
 
         self.create_genesis()
         self.miningDiff = miningDiff
@@ -55,7 +55,7 @@ class BlockChain:
         """
         genesis_block = Block(0, [], "0")
         genesis_block.hash = genesis_block.compute_hash()
-        self.chain.append(genesis_block)  # TODO: Here as well
+        self.chain.append(genesis_block)
 
     def proof_of_work(self, block):
         """
@@ -75,11 +75,11 @@ class BlockChain:
         if prev_hash != block.prev_hash or not self.check_proof(block, proof_computed_hash):
             return False
         block.hash = proof_computed_hash
-        self.chain.append(block.__dict__)
+        self.chain.append(block)
 
         # removes all the verified transactions
         if not self.MemPool.remove_transactions(block.transactions):
-
+            self.Network.broadcast([x.__dict__ for x in block.transactions], 'transactions_verified')
 
         return True
 
@@ -96,7 +96,7 @@ class BlockChain:
     def mine(self):
         # if self.unverified_transactions:
         last_block = self.last_block
-        new_transactions = self.MemPool.get_top_transactions()  # TODO: change this to add transactions as dict not obj
+        new_transactions = self.MemPool.get_top_transactions()
         new_transactions = [x.__dict__ for x in new_transactions]
         new_block = Block(last_block.index + 1, transactions=new_transactions, prev_hash=last_block.hash)
         proof_work = self.proof_of_work(new_block)
@@ -128,7 +128,8 @@ class BlockChain:
                     max_length = node_chain_length
                     longest_chain = node_chain
         if longest_chain:
-            self.chain = [Block(x['index'], x['transactions'], x['prev_hash'], x['nonce'], x['timestamp']) for x in longest_chain]
+            self.chain = [Block(x['index'], x['transactions'], x['prev_hash'], x['nonce'], x['timestamp']) for x in
+                          longest_chain]
             return True
         else:
             return False
@@ -249,14 +250,14 @@ class MemPool:
 
 class Node:
 
-    def __init__(self, path='127.0.0.0', port='50001', address=str(uuid4()).replace('-', '')):
+    def __init__(self, path='127.0.0.1', port='50000', address=str(uuid4()).replace('-', '')):
         self.path = path
         self.port = port
         self.address = address
 
     @property
     def full_url(self):
-        return 'http://' + self.path + '/' + self.port
+        return 'http://' + self.path + ':' + self.port
 
     def __repr__(self):
         return f"Node url: {self.full_url}\nNode Address: {self.address}"
@@ -300,7 +301,7 @@ class Network:
             return False
 
     def connect_to_network(self):
-        payload = {'node_address': self.current_node}
+        payload = {'node': self.current_node.__dict__}
         self.broadcast(payload, 'add_node')
         self.connected = True
 
@@ -308,9 +309,8 @@ class Network:
         for node in self.nodes:
             requests.post(f"{node.full_url}/{link}", data=message)
 
-
-
-
+# TODO: Figure out why hash is included in original chain but not in the copied chain in another node
+# TODO: Test transaction features as well as adding nodes/transactions 3 way
 
 # coin in which power/hardware does not affect performance of mining -- something tied into productivity/good output
 # so reward is not computing power based but productivity based (open source contributions based?)

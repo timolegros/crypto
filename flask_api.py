@@ -4,14 +4,15 @@ from uuid import uuid4
 
 app = Flask(__name__)
 
-blockchain = BlockChain(1, '5001', '127.0.0.1')
+first = Node(port='50001')
+blockchain = BlockChain(1, first, '50000', '127.0.0.1')
 
 
 @app.route('/get_chain', methods=['GET'])
 def get_chain():
-    # payload = [x.__dict__ for x in blockchain.chain]
+    payload = [x.__dict__ for x in blockchain.chain]
     # payload = json.dumps(blockchain.chain, default=lambda x: x.__dict__)
-    response = {'chain': blockchain.chain, 'length': len(blockchain.chain)}
+    response = {'chain': payload, 'length': len(blockchain.chain)}
     return jsonify(response), 200
 
 
@@ -29,7 +30,8 @@ def mine_block():
 
 @app.route('/validate_chain', methods=['GET'])
 def validate_chain():
-    if blockchain.validate_chain(blockchain.chain):
+    temp = [x.__dict__ for x in blockchain.chain]
+    if blockchain.validate_chain(temp):
         response = {'message': 'The blockchain is valid!'}
     else:
         response = {'message': 'The blockchain is invalid!'}
@@ -72,6 +74,12 @@ def transactions_verified():
 
     response = {'message': 'Transactions successfully verified and removed from MemPool'}
     return jsonify(response), 201
+
+
+@app.route('/chain_consensus', methods=['GET'])
+def chain_consensus():
+    blockchain.consensus()
+    return jsonify({'message': 'The chain was updated!'}), 200
 
 
 app.run(host='127.0.0.1', port=50000)

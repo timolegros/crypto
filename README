@@ -2,3 +2,8 @@ Quadkoin is not optimized for speed but its structure is extremely modular. For 
 The alternative is to keep all of the information in these components in json which would improve speed but reduces modularity. The object method is mainly slower because
 it requires iterating through lists of objects when converting to json since objects are not serializable themselves. This coin is meant to be used to expirment with various
 cryptocurrency features. The object oriented nature of this cryptocurrency makes it very easy to add new functionality.
+
+The current feature I am experiementing with is a new way of mining in which instead of it being based on computing power/hash rate mining is the act of having a positive impact
+on society. One of the largest issues with Bitcoin and many cryptocurrencies is that the process of mining is completely devoid of purpose (apart from transaction verification)
+and is very costly on the environment with mining consuming as much electricity as a small country. What I propose is a method of mining which eliminates this cost on the
+environment and instead has a positive impact.

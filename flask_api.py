@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
-from blockchain import BlockChain,Transaction, Node
+from blockchain import BlockChain,Transaction, Node, Block
 from uuid import uuid4
+import json
 
 app = Flask(__name__)
 
@@ -41,18 +42,42 @@ def validate_chain():
 
 @app.route('/add_transaction', methods=['POST'])
 def add_transaction():
-    data = request.form['transaction']
+    data = request.json['transaction']
     new_transaction = Transaction(data['sender'], data['receiver'], data['amount'], data['fee'], data['ID'])
 
     if blockchain.propagate_transaction(new_transaction):
-        return jsonify({'message': 'Transaction successfully added'})
+        return jsonify({'message': 'Transaction successfully added'}), 201
     else:
-        return 400
+        return jsonify({'message': 'Transaction already propagated'}), 201
+
+
+@app.route('/update_node', methods=['POST'])
+def update_node():
+    new_chain = []
+    chain = request.json['chain']
+    for x in chain:
+        new_block = Block(x['index'], x['transactions'], x['prev_hash'], x['nonce'], x['timestamp'])
+        new_block.hash = x['hash']
+        new_chain.append(new_block)
+
+    transactions = request.json['transactions']
+    transactions = [Transaction(x['sender'], x['receiver'], x['amount'], x['fee'], x['ID']) for x in transactions]
+
+    blockchain.chain = new_chain
+    blockchain.MemPool.unverified_transactions = transactions
+
+    return jsonify({'message': 'Successful'}), 201
+
+
+@app.route('/get_unverified_transactions', methods=['GET'])
+def get_unverified_transactions():
+    payload = [x.__dict__ for x in blockchain.MemPool.unverified_transactions]
+    return jsonify({'message': payload}), 200
 
 
 @app.route('/add_node', methods=['POST'])
 def add_node():
-    data = request.form['node']
+    data = request.json['node']
     new_node = Node(data['path'], data['port'], data['address'])
     blockchain.Network.add_node(new_node)
     response = {'message': 'Node successfully connected!'}
@@ -61,7 +86,7 @@ def add_node():
 
 @app.route('/transactions_verified', methods=['POST'])
 def transactions_verified():
-    data = request.form['transactions']
+    data = request.json['transactions']
 
     # remove transactions from this MemPool
     transactions = [Transaction(x['sender'], x['receiver'], x['amount'], x['fee'], x['ID']) for x in data]
@@ -80,6 +105,24 @@ def transactions_verified():
 def chain_consensus():
     blockchain.consensus()
     return jsonify({'message': 'The chain was updated!'}), 200
+
+
+@app.route('/connect_to_network', methods=['GET'])
+def connect_to_network():
+    blockchain.Network.connect_to_network()
+    return jsonify({'message': 'Node info sent to network'})
+
+
+@app.route('/get_nodes', methods=['GET'])
+def get_nodes():
+    payload = [x.__dict__ for x in blockchain.Network.nodes]
+    return jsonify({'message': payload}), 200
+
+
+@app.route('/receive_data', methods=['POST'])
+def receive_data():
+    print(request.json)
+    return jsonify({'message': 'It works'}), 200
 
 
 app.run(host='127.0.0.1', port=50000)

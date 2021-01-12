@@ -128,8 +128,12 @@ class BlockChain:
                     max_length = node_chain_length
                     longest_chain = node_chain
         if longest_chain:
-            self.chain = [Block(x['index'], x['transactions'], x['prev_hash'], x['nonce'], x['timestamp']) for x in
-                          longest_chain]
+            new_chain = []
+            for x in longest_chain:
+                new_block = Block(x['index'], x['transactions'], x['prev_hash'], x['nonce'], x['timestamp'])
+                new_block.hash = x['hash']
+                new_chain.append(new_block)
+            self.chain = new_chain
             return True
         else:
             return False
@@ -145,6 +149,12 @@ class BlockChain:
         self.Network.broadcast({'transaction': transaction.__dict__}, 'add_transaction')
 
         return True
+
+    def update_node(self, node):
+        transactions = [x.__dict__ for x in self.MemPool.unverified_transactions]
+        chain = [x.__dict__ for x in self.chain]
+        url = node.full_url + '/update_node'
+        requests.post(url, json={"chain": chain, "transactions": transactions})
 
     @property
     def last_block(self):
@@ -274,7 +284,7 @@ class Node:
 
 class Network:
 
-    def __init__(self, current_node, nodes):
+    def __init__(self, current_node, nodes, Mempool):
         self.current_node = current_node
         self.nodes = nodes
         self.connected = False
@@ -305,11 +315,10 @@ class Network:
         self.broadcast(payload, 'add_node')
         self.connected = True
 
-    def broadcast(self, message, link):
+    def broadcast(self, payload, link):
         for node in self.nodes:
-            requests.post(f"{node.full_url}/{link}", data=message)
+            requests.post(f"{node.full_url}/{link}", json=payload)
 
-# TODO: Figure out why hash is included in original chain but not in the copied chain in another node
 # TODO: Test transaction features as well as adding nodes/transactions 3 way
 
 # coin in which power/hardware does not affect performance of mining -- something tied into productivity/good output

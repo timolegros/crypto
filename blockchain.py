@@ -17,6 +17,9 @@ class Block:
 
     def compute_hash(self):
         """Simple function to calculate the hash given the current state of the block"""
+        # if len(self.transactions) > 0 and type(self.transactions[0]) != type(dict()):
+        #     self.transactions = [x.__dict__ for x in self.transactions]
+
         block = json.dumps(self.__dict__, sort_keys=True).encode()
         return sha256(block).hexdigest()
 
@@ -97,7 +100,7 @@ class BlockChain:
         # if self.unverified_transactions:
         last_block = self.last_block
         new_transactions = self.MemPool.get_top_transactions()
-        new_transactions = [x.__dict__ for x in new_transactions]
+        # new_transactions = [x.__dict__ for x in new_transactions]
         new_block = Block(last_block.index + 1, transactions=new_transactions, prev_hash=last_block.hash)
         proof_work = self.proof_of_work(new_block)
         self.add_block(new_block, proof_work)
@@ -284,7 +287,7 @@ class Node:
 
 class Network:
 
-    def __init__(self, current_node, nodes, Mempool):
+    def __init__(self, current_node, nodes):
         self.current_node = current_node
         self.nodes = nodes
         self.connected = False
@@ -319,7 +322,9 @@ class Network:
         for node in self.nodes:
             requests.post(f"{node.full_url}/{link}", json=payload)
 
+# TODO: Fix __dict__ issue with transactions when attempting mine_block
 # TODO: Test transaction features as well as adding nodes/transactions 3 way
+# TODO: Reorganize classes and flask functions for simplicity -- class inheritance simplification?
 
 # coin in which power/hardware does not affect performance of mining -- something tied into productivity/good output
 # so reward is not computing power based but productivity based (open source contributions based?)

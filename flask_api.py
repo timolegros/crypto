@@ -104,7 +104,7 @@ def transactions_verified():
 
 @app.route('/chain_consensus', methods=['GET'])
 def chain_consensus():
-    blockchain.consensus()
+    blockchain.compare_chains()
     return jsonify({'message': 'The chain was updated!'}), 200
 
 

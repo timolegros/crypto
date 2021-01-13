@@ -86,6 +86,7 @@ def add_node():
 
 @app.route('/transactions_verified', methods=['POST'])
 def transactions_verified():
+    print(request.json)
     data = request.json['transactions']
 
     # remove transactions from this MemPool
@@ -95,7 +96,7 @@ def transactions_verified():
     # if transactions have already been removed then this node has already propagated this action to the other nodes
     if validity:
         # propagate remove call to the other nodes
-        blockchain.Network.broadcast(data, '/transactions_verified')
+        blockchain.Network.broadcast({'transactions': data}, '/transactions_verified')
 
     response = {'message': 'Transactions successfully verified and removed from MemPool'}
     return jsonify(response), 201

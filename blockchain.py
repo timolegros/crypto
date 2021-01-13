@@ -3,7 +3,7 @@ from hashlib import sha256
 import json
 import requests
 from network import Network, Node
-from mempool import MemPool, Transaction
+from mempool import MemPool
 
 
 class BlockChain:

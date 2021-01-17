@@ -1,5 +1,6 @@
 import requests
 from uuid import uuid4
+import logging
 
 
 class Node:
@@ -80,8 +81,11 @@ class Network:
 
     def broadcast(self, payload: dict, link: str):
         for node in self.nodes:
-            requests.post(f"{node.full_url}/{link}", json=payload)
-
+            try:
+                requests.post(f"{node.full_url}/{link}", json=payload)
+            except Exception as error:
+                logging.warning(f"{node} not online -- could not broadcast to this node")
+                print(error)
     @property
     def num_nodes(self) -> int:
         return len(self.nodes)

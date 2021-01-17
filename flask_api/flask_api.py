@@ -44,6 +44,7 @@ def validate_chain():
 @app.route('/add_transaction', methods=['POST'])
 def add_transaction():
     data = request.json['transaction']
+
     new_transaction = Transaction(data['sender'], data['receiver'], data['amount'], data['fee'], data['ID'])
 
     if blockchain.propagate_transaction(new_transaction):
@@ -73,7 +74,7 @@ def update_node():
 @app.route('/get_unverified_transactions', methods=['GET'])
 def get_unverified_transactions():
     payload = [x.__dict__ for x in blockchain.MemPool.unverified_transactions]
-    return jsonify({'message': payload}), 200
+    return jsonify({'Transactions': payload}), 200
 
 
 @app.route('/add_node', methods=['POST'])

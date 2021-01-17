@@ -88,7 +88,6 @@ def add_node():
 
 @app.route('/transactions_verified', methods=['POST'])
 def transactions_verified():
-    print(request.json)
     data = request.json['transactions']
 
     # remove transactions from this MemPool

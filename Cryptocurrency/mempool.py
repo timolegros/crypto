@@ -2,6 +2,8 @@ from uuid import uuid4
 from typing import Union, List, Tuple
 
 
+# TODO: wallets
+
 class Transaction:
     """
     The Transaction class represents a transaction between two entities. Comparison is done value-wise. That is, the
@@ -48,6 +50,7 @@ class MemPool:
     :param max_tran_per_MemPool: The maximum number of transactions each instance of the MemPool can hold. This is used
                                 to limit the amount of transaction each node keeps track of.
     """
+
     # TODO: Devise method of recording transaction history so that if collision occurs transactions that were verified
     # TODO: but aren't anymore get moved
 
@@ -80,7 +83,7 @@ class MemPool:
                 self.unverified_transactions.append(transaction)
                 return 0, len(self.unverified_transactions)
 
-    def insert_multiple_transactions(self, transactions: List[Transaction]) -> Union[False, int]:
+    def insert_multiple_transactions(self, transactions: List[Transaction]) -> Union[bool, int]:
         """
         Inserts a batch of Transaction objects and orders them by transaction fee.
 
@@ -118,6 +121,3 @@ class MemPool:
     @property
     def num_transactions(self):
         return len(self.unverified_transactions)
-
-
-

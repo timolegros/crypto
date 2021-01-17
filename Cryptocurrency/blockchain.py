@@ -2,10 +2,9 @@ import datetime
 from hashlib import sha256
 import json
 import requests
-from network import Network, Node
-from mempool import MemPool
+from .network import Network, Node
+from .mempool import MemPool, Transaction
 from typing import List, Union
-from mempool import Transaction
 from requests import Response
 
 

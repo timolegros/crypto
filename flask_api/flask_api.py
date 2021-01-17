@@ -1,7 +1,8 @@
 from flask import Flask, request, jsonify
-from blockchain import BlockChain,Transaction, Node, Block
-from uuid import uuid4
-import json
+from Cryptocurrency.blockchain import BlockChain, Block
+from Cryptocurrency.network import Node
+from Cryptocurrency.mempool import Transaction
+
 
 app = Flask(__name__)
 
@@ -126,4 +127,5 @@ def receive_data():
     return jsonify({'message': 'It works'}), 200
 
 
-app.run(host='127.0.0.1', port=50000)
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=50000)
